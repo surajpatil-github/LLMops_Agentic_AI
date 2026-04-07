@@ -148,18 +148,26 @@ pipeline {
       when { expression { params.RUN_DEPLOY } }
       steps {
         echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}..."
-        sh """
-          set -e
+        withCredentials([
+          string(credentialsId: 'dockerhub-username', variable: 'DH_USER'),
+          string(credentialsId: 'dockerhub-token',    variable: 'DH_TOKEN')
+        ]) {
+          sh """
+            set -e
 
-          docker build \\
-            --platform linux/amd64 \\
-            -t ${IMAGE_NAME}:${IMAGE_TAG} \\
-            -t ${IMAGE_NAME}:latest \\
-            -f Dockerfile .
+            # Login before build so Docker can pull python:3.12-slim base image
+            echo "\$DH_TOKEN" | docker login -u "\$DH_USER" --password-stdin
 
-          echo "Image built:"
-          docker images ${IMAGE_NAME}
-        """
+            docker build \\
+              --platform linux/amd64 \\
+              -t ${IMAGE_NAME}:${IMAGE_TAG} \\
+              -t ${IMAGE_NAME}:latest \\
+              -f Dockerfile .
+
+            echo "Image built:"
+            docker images ${IMAGE_NAME}
+          """
+        }
       }
     }
 

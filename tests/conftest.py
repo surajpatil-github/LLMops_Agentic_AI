@@ -175,6 +175,7 @@ def stub_rag(monkeypatch):
         def __init__(self, session_id=None, retriever=None):
             self.session_id = session_id
             self.retriever = retriever
+            self._token_tracker = None
 
         def load_retriever_from_faiss(self, index_path, **kwargs):
             return None

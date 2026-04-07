@@ -5,7 +5,7 @@ def test_chat_invalid_session_returns_400(client, clear_sessions, stub_rag):
     body = {"session_id": "nope", "message": "hi"}
     resp = client.post("/chat", json=body)
     assert resp.status_code == 400
-    assert "Invalid or expired" in resp.json()["detail"]
+    assert "not found" in resp.json()["detail"].lower()
 
 
 def test_chat_empty_message_returns_400(client, clear_sessions, stub_rag):

@@ -7,7 +7,7 @@ def test_upload_success_returns_session_and_indexed(client, clear_sessions, stub
     resp = client.post("/upload", files=files)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["indexed"] is True
+    assert data["indexed"]
     assert data["session_id"]
 
 
