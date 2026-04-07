@@ -9,27 +9,31 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
-      - name: Sync dependencies with uv (locked)
+      - name: Install dependencies
         run: |
-          uv sync --frozen
-          uv pip install pytest
+          UV="$HOME/.local/bin/uv"
+          # CPU-only torch first — prevents sentence-transformers pulling CUDA wheels
+          "$UV" pip install --system torch --index-url https://download.pytorch.org/whl/cpu
+          "$UV" pip install --system -r requirements.txt
+          "$UV" pip install --system pytest pytest-cov
+
       - name: Run tests
         env:
-          PYTHONPATH: ${{ github.workspace }}/multi_doc_chat
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/multi_doc_chat
           GROQ_API_KEY: dummy
           GOOGLE_API_KEY: dummy
           LLM_PROVIDER: google
-        run: |
-          uv run pytest -q
+        run: pytest tests/ -q --tb=short
