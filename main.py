@@ -227,7 +227,7 @@ async def health():
         v in ("ok", "unknown") or not v.startswith("unavailable")
         for v in checks.values()
     ) else "degraded"
-    return {"status": overall, "checks": checks}
+    return {"status": overall, "version": "0.2.1", "checks": checks}
 
 
 @app.get("/", response_class=HTMLResponse)
