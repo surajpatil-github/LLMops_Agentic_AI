@@ -25,9 +25,7 @@ pipeline {
     PYTHON_VERSION = '3.12'
     PYTHONPATH     = "${WORKSPACE}:${WORKSPACE}/multi_doc_chat"
 
-    // API keys (optional — set in Jenkins credentials)
-    GROQ_API_KEY   = credentials('groq-api-key')
-    GOOGLE_API_KEY = credentials('google-api-key')
+    // API keys — optional, read from Jenkins credentials if they exist
     LLM_PROVIDER   = "${env.LLM_PROVIDER ?: 'groq'}"
 
     // Docker Hub
@@ -195,27 +193,27 @@ pipeline {
       when { expression { params.RUN_DEPLOY } }
       steps {
         echo 'Deploying application with docker-compose...'
-        sh """
-          set -e
+        withCredentials([
+          string(credentialsId: 'groq-api-key',   variable: 'GROQ_API_KEY'),
+          string(credentialsId: 'google-api-key', variable: 'GOOGLE_API_KEY')
+        ]) {
+          sh """
+            set -e
 
-          # Resolve the tag to deploy
-          DEPLOY_TAG="${params.DEPLOY_TAG ?: IMAGE_TAG}"
-          export APP_IMAGE="${IMAGE_NAME}:\$DEPLOY_TAG"
-          export GROQ_API_KEY="${GROQ_API_KEY}"
-          export GOOGLE_API_KEY="${GOOGLE_API_KEY}"
-          export LLM_PROVIDER="${LLM_PROVIDER}"
+            DEPLOY_TAG="${params.DEPLOY_TAG ?: IMAGE_TAG}"
+            export APP_IMAGE="${IMAGE_NAME}:\$DEPLOY_TAG"
+            export GROQ_API_KEY="\$GROQ_API_KEY"
+            export GOOGLE_API_KEY="\$GOOGLE_API_KEY"
+            export LLM_PROVIDER="${LLM_PROVIDER}"
 
-          echo "Deploying image: \$APP_IMAGE"
+            echo "Deploying image: \$APP_IMAGE"
+            docker pull "\$APP_IMAGE"
+            APP_IMAGE="\$APP_IMAGE" docker-compose up -d --no-build
 
-          # Pull the new image
-          docker pull "\$APP_IMAGE"
-
-          # Bring up the stack (recreates only changed containers)
-          APP_IMAGE="\$APP_IMAGE" docker-compose up -d --no-build
-
-          echo "Waiting for app to become ready..."
-          sleep 15
-        """
+            echo "Waiting for app to become ready..."
+            sleep 15
+          """
+        }
       }
     }
 
