@@ -46,16 +46,15 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends poppler-utils libgomp1 \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy the venv from builder — no build tools in final image
-COPY --from=builder /build/.venv /app/.venv
-
-# Copy application source
-COPY . .
-
-# Non-root user for security
+# Non-root user — create before COPY so ownership can be set inline
 RUN addgroup --system appgroup \
- && adduser --system --ingroup appgroup --no-create-home appuser \
- && chown -R appuser:appgroup /app
+ && adduser --system --ingroup appgroup --no-create-home appuser
+
+# Copy the venv from builder and chown it once (cached unless requirements change)
+COPY --from=builder --chown=appuser:appgroup /build/.venv /app/.venv
+
+# Copy application source — always fresh, no slow chown of entire /app needed
+COPY --chown=appuser:appgroup . .
 
 USER appuser
 
