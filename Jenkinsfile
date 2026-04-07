@@ -224,7 +224,9 @@ pipeline {
 
             echo "Deploying image: \$APP_IMAGE"
             docker pull "\$APP_IMAGE"
-            APP_IMAGE="\$APP_IMAGE" docker-compose up -d --no-build
+            # Only start app + redis — monitoring services (prometheus/grafana/otel/jaeger)
+            # bind-mount host paths that don't exist when Jenkins runs inside Docker.
+            APP_IMAGE="\$APP_IMAGE" docker-compose up -d --no-build app redis
 
             echo "Waiting for app to become ready..."
             sleep 15
@@ -257,7 +259,7 @@ pipeline {
 
           echo "App is healthy at ${APP_URL}"
           echo "Stack status:"
-          docker-compose ps
+          docker-compose ps app redis
         """
       }
     }
