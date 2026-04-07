@@ -27,32 +27,47 @@ def client():
     return TestClient(main.app)
 
 
+class _FakeSessionStore:
+    """In-memory SessionStore drop-in for tests (no Redis needed)."""
+    def __init__(self):
+        self._data: dict = {}
+
+    def create_session(self, sid):
+        self._data[sid] = []
+
+    def session_exists(self, sid):
+        return sid in self._data
+
+    def get_history(self, sid):
+        return self._data.get(sid, [])
+
+    def append_turn(self, sid, user_msg, assistant_msg):
+        if sid not in self._data:
+            self._data[sid] = []
+        self._data[sid].append({"role": "user", "content": user_msg})
+        self._data[sid].append({"role": "assistant", "content": assistant_msg})
+
+    def delete_session(self, sid):
+        self._data.pop(sid, None)
+
+    def active_count(self):
+        return len(self._data)
+
+    def clear(self):
+        self._data.clear()
+
+
 @pytest.fixture
 def clear_sessions(monkeypatch):
-    # SESSIONS dict was replaced by a Redis-backed session store.
-    # Patch the session store with a simple in-memory dict for tests.
-    from multi_doc_chat.src.persistence import session_store as ss
-    fake_store: dict = {}
-
-    def fake_get(sid):
-        return fake_store.get(sid, [])
-
-    def fake_set(sid, history, _ttl=None):
-        fake_store[sid] = history
-
-    def fake_delete(sid):
-        fake_store.pop(sid, None)
-
-    monkeypatch.setattr(ss, "get_session", fake_get)
-    monkeypatch.setattr(ss, "set_session", fake_set)
-    monkeypatch.setattr(ss, "delete_session", fake_delete)
-
-    # Also expose a SESSIONS-like dict on main so tests can seed data
-    monkeypatch.setattr(main, "SESSIONS", fake_store, raising=False)
-
-    fake_store.clear()
-    yield fake_store
-    fake_store.clear()
+    """Replace the lazy session store in main with a fast in-memory fake."""
+    fake = _FakeSessionStore()
+    monkeypatch.setattr(main, "_session_store", fake)
+    monkeypatch.setattr(main, "_get_session_store", lambda: fake)
+    # Expose a SESSIONS-like dict so integration tests can seed data directly
+    monkeypatch.setattr(main, "SESSIONS", fake._data, raising=False)
+    fake.clear()
+    yield fake
+    fake.clear()
 
 
 @pytest.fixture
