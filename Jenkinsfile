@@ -216,7 +216,7 @@ pipeline {
 
             echo "Deploying image: \$APP_IMAGE"
             docker pull "\$APP_IMAGE"
-            APP_IMAGE="\$APP_IMAGE" docker-compose up -d --no-build
+            APP_IMAGE="\$APP_IMAGE" docker compose up -d --no-build
 
             echo "Waiting for app to become ready..."
             sleep 15
@@ -240,7 +240,7 @@ pipeline {
             I=\$((I+1))
             if [ \$I -ge \$MAX ]; then
               echo "Health check failed after \$((MAX*5))s"
-              docker-compose logs --tail=50 app || true
+              docker compose logs --tail=50 app || true
               exit 1
             fi
             echo "Waiting for health check... (\$I/\$MAX)"
@@ -249,7 +249,7 @@ pipeline {
 
           echo "App is healthy at ${APP_URL}"
           echo "Stack status:"
-          docker-compose ps
+          docker compose ps
         """
       }
     }

@@ -66,8 +66,10 @@ def clear_sessions(monkeypatch):
     # Expose a SESSIONS-like dict so integration tests can seed data directly
     monkeypatch.setattr(main, "SESSIONS", fake._data, raising=False)
     fake.clear()
+    main._rag_cache.clear()
     yield fake
     fake.clear()
+    main._rag_cache.clear()
 
 
 @pytest.fixture
