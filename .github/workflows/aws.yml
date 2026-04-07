@@ -1,13 +1,6 @@
 name: CI/CD to ECS Fargate
 on:
-  workflow_run:
-    workflows: ["CI"] # Must match the "name" field in ci.yml
-    branches:
-      - main
-      - DeployOnAWS
-    types:
-      - completed
-  workflow_call:
+  workflow_dispatch:  # manual only — AWS not configured, disabled from auto-trigger
 env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: llmopsrepolive
