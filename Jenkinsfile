@@ -208,6 +208,14 @@ pipeline {
           sh """
             set -e
 
+            # Install docker-compose v2 binary if not present
+            if ! command -v docker-compose >/dev/null 2>&1; then
+              echo "Installing docker-compose..."
+              curl -fsSL "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64" \
+                -o /usr/local/bin/docker-compose
+              chmod +x /usr/local/bin/docker-compose
+            fi
+
             DEPLOY_TAG="${params.DEPLOY_TAG ?: IMAGE_TAG}"
             export APP_IMAGE="${IMAGE_NAME}:\$DEPLOY_TAG"
             export GROQ_API_KEY="\$GROQ_API_KEY"
@@ -216,7 +224,7 @@ pipeline {
 
             echo "Deploying image: \$APP_IMAGE"
             docker pull "\$APP_IMAGE"
-            APP_IMAGE="\$APP_IMAGE" docker compose up -d --no-build
+            APP_IMAGE="\$APP_IMAGE" docker-compose up -d --no-build
 
             echo "Waiting for app to become ready..."
             sleep 15
@@ -240,7 +248,7 @@ pipeline {
             I=\$((I+1))
             if [ \$I -ge \$MAX ]; then
               echo "Health check failed after \$((MAX*5))s"
-              docker compose logs --tail=50 app || true
+              docker-compose logs --tail=50 app || true
               exit 1
             fi
             echo "Waiting for health check... (\$I/\$MAX)"
@@ -249,7 +257,7 @@ pipeline {
 
           echo "App is healthy at ${APP_URL}"
           echo "Stack status:"
-          docker compose ps
+          docker-compose ps
         """
       }
     }
