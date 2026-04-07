@@ -1,23 +1,66 @@
-python-dotenv==1.1.1
-structlog
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+jinja2==3.1.4
+aiofiles>=23.2.0
 
+# LangChain ecosystem
 langchain==0.3.27
 langchain-community==0.3.27
 langchain-core==0.3.72
-
 langchain-groq==0.3.6
 langchain-google-genai==2.1.8
 langchain-openai==0.2.10
+langsmith>=0.4.28
 
+# Vector store
+faiss-cpu>=1.12.0
+
+# Document loaders
+pypdf>=6.6.0
 docx2txt==0.9
+
+# Advanced RAG - Hybrid Search (BM25)
+rank-bm25>=0.2.2
+numpy>=1.26.0
+scikit-learn>=1.4.0
+
+# Advanced RAG - Reranking
+sentence-transformers>=3.0.0
+
+# Caching & Session Persistence
+redis[hiredis]>=5.0.0
+
+# Monitoring - Metrics
+prometheus-client>=0.20.0
+starlette-prometheus>=0.10.0
+
+# Monitoring - Tracing
+opentelemetry-sdk>=1.24.0
+opentelemetry-instrumentation-fastapi>=0.45b0
+opentelemetry-exporter-otlp-proto-grpc>=1.24.0
+
+# Cost tracking
+tiktoken>=0.7.0
+
+# Utilities
+python-dotenv==1.1.1
+structlog>=25.4.0
+tenacity>=8.2.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# LLMs
+openai>=1.107.3
+
+# Data
+pandas>=2.3.3
+
+# Dev / Notebooks
 ipykernel==6.30.0
-python-multipart==0.0.20
-faiss-cpu
 
-fastapi==0.115.6
-uvicorn==0.32.1
-Jinja2==3.1.4
-
-langsmith
-openai
-pandas
+# Testing
+pytest>=9.0.2
+pytest-asyncio>=0.23.0
+httpx>=0.27.0

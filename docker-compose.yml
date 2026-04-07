@@ -1,0 +1,133 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# MultiDocChat — Full local stack
+#
+# Services:
+#   app        — FastAPI RAG application
+#   redis      — Session store + caching (semantic & response)
+#   prometheus — Metrics scraping
+#   grafana    — Metrics dashboards
+#   otel       — OpenTelemetry Collector (traces → Jaeger)
+#   jaeger     — Distributed trace viewer
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Application ─────────────────────────────────────────────────────────
+  # APP_IMAGE can be overridden by Jenkins:
+  #   APP_IMAGE=yourname/llmops-app:42 docker-compose up -d --no-build
+  # Falls back to a local build when APP_IMAGE is not set.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: ${APP_IMAGE:-multidocchat:latest}
+    container_name: multidocchat_app
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=local
+      - PORT=8080
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_PROVIDER=groq
+    env_file:
+      - .env
+    volumes:
+      - faiss_data:/app/faiss_index
+      - upload_data:/app/data
+      - log_data:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: multidocchat_redis
+    ports:
+      - "6381:6379"
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Prometheus ───────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: multidocchat_prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
+    depends_on:
+      - app
+
+  # ── Grafana ──────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: multidocchat_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/rag.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # ── OpenTelemetry Collector ──────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.101.0
+    container_name: multidocchat_otel
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # OTel metrics
+    volumes:
+      - ./monitoring/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - jaeger
+    restart: unless-stopped
+
+  # ── Jaeger ───────────────────────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: multidocchat_jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # gRPC from collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+
+volumes:
+  faiss_data:
+  upload_data:
+  log_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

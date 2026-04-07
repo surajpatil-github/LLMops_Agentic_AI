@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multidocchat-app
+  namespace: multidocchat
+  labels:
+    app: multidocchat-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: multidocchat-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0        # Zero-downtime deploys
+  template:
+    metadata:
+      labels:
+        app: multidocchat-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: app
+          image: multidocchat:latest   # Replace with your registry image
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: multidocchat-config
+            - secretRef:
+                name: multidocchat-secrets
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "3Gi"        # sentence-transformers needs ~1.5 GB
+          volumeMounts:
+            - name: faiss-index
+              mountPath: /app/faiss_index
+            - name: upload-data
+              mountPath: /app/data
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: faiss-index
+          persistentVolumeClaim:
+            claimName: faiss-index-pvc
+        - name: upload-data
+          persistentVolumeClaim:
+            claimName: upload-data-pvc
+      terminationGracePeriodSeconds: 30

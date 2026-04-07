@@ -1,0 +1,50 @@
+# Python virtualenvs — never copy into Docker build context
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local data & indexes — mounted as volumes in production
+data/
+faiss_index/
+logs/
+
+# Dev & test artifacts
+.pytest_cache/
+htmlcov/
+coverage.xml
+.coverage
+test-results/
+
+# Jupyter
+.ipynb_checkpoints/
+notebook/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets
+.env
+.env.*
+
+# CI/CD (not needed in image)
+Jenkinsfile
+Jenkinsfile.test
+Dockerfile.jenkins
+docker-compose.jenkins.yml
+scripts/
+guide/
+k8s/
+monitoring/

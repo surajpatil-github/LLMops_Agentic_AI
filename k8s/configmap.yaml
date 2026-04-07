@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multidocchat-config
+  namespace: multidocchat
+data:
+  ENV: "production"
+  LLM_PROVIDER: "groq"
+  PORT: "8080"
+  # Redis URL (points to in-cluster Redis service)
+  REDIS_URL: "redis://multidocchat-redis:6379/0"

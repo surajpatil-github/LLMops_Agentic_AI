@@ -1,15 +1,110 @@
-embedding_model:
-  provider: google
-  model_name: models/text-embedding-004
+# ============================================================
+# MultiDocChat — Production Configuration
+# ============================================================
 
+# ── Embedding model ──────────────────────────────────────────
+embedding_model:
+  provider: google                          # "google" | "openai"
+  model_name: models/gemini-embedding-001
+  # Uncomment for OpenAI embeddings (cheaper for high volume):
+  # provider: openai
+  # model_name: text-embedding-3-small
+
+# ── Retriever base settings ───────────────────────────────────
 retriever:
   top_k: 5
-  search_type: mmr
+  search_type: mmr                          # "similarity" | "mmr" | "similarity_score_threshold"
   fetch_k: 20
   lambda_mult: 0.5
 
+# ── LLM providers ─────────────────────────────────────────────
 llm:
   groq:
-    model_name: llama-3.3-70b-versatile
+    model_name: llama-3.3-70b-versatile     # Fast, cost-effective
     temperature: 0
     max_output_tokens: 2048
+  openai:
+    model_name: gpt-4o-mini                 # Fallback provider
+    temperature: 0
+    max_output_tokens: 2048
+
+# ── Advanced RAG ──────────────────────────────────────────────
+advanced_rag:
+
+  # Hybrid Search: combines dense (FAISS) + sparse (BM25) via RRF
+  hybrid_search:
+    enabled: true
+    bm25_weight: 0.3                        # Weight for keyword (BM25) results
+    dense_weight: 0.7                       # Weight for semantic (FAISS) results
+    rrf_k: 60                               # RRF constant (higher = smoother rankings)
+    fetch_n: 20                             # Candidates to fetch from each retriever
+
+  # Cross-encoder reranking: re-scores top candidates with a heavier model
+  reranker:
+    enabled: true
+    model: cross-encoder/ms-marco-MiniLM-L-6-v2   # Lightweight, fast, good quality
+    top_n: 5                                # Final docs to pass to LLM
+    batch_size: 32                          # GPU/CPU batch for inference
+
+  # HyDE: generate a hypothetical answer first, use its embedding for retrieval
+  # Improves recall for complex/indirect queries at cost of 1 extra LLM call
+  hyde:
+    enabled: false
+    num_hypothetical: 1                     # Number of hypothetical docs to generate
+
+# ── Chunking strategy ─────────────────────────────────────────
+chunking:
+  strategy: recursive                       # "recursive" | "semantic"
+  chunk_size: 1000
+  chunk_overlap: 200
+  separators: ["\n\n", "\n", ". ", " ", ""]
+
+# ── Caching (Redis) ───────────────────────────────────────────
+cache:
+  redis_url: "redis://localhost:6379/0"     # Override with REDIS_URL env var
+
+  # Semantic cache: reuses answers for near-duplicate queries
+  semantic:
+    enabled: true
+    similarity_threshold: 0.95             # Cosine similarity to count as "same query"
+    ttl_seconds: 3600                      # 1 hour
+
+  # Response cache: exact-match hash cache (very fast)
+  response:
+    enabled: true
+    ttl_seconds: 300                       # 5 minutes
+
+# ── Cost tracking ─────────────────────────────────────────────
+cost:
+  enabled: true
+  budget_per_session_usd: 1.0             # Hard limit per session
+  warn_at_fraction: 0.8                   # Warn when 80% of budget used
+  pricing:                                # USD per 1M tokens
+    llama-3.3-70b-versatile:
+      input_per_1m: 0.59
+      output_per_1m: 0.79
+    gpt-4o-mini:
+      input_per_1m: 0.15
+      output_per_1m: 0.60
+    text-embedding-3-small:
+      input_per_1m: 0.02
+      output_per_1m: 0.00
+    models/gemini-embedding-001:
+      input_per_1m: 0.00                  # Currently free tier
+      output_per_1m: 0.00
+
+# ── Session management ────────────────────────────────────────
+session:
+  backend: redis                          # "memory" | "redis"
+  ttl_seconds: 86400                      # 24-hour session expiry
+
+# ── Monitoring ────────────────────────────────────────────────
+monitoring:
+  prometheus:
+    enabled: true
+    path: /metrics
+  tracing:
+    enabled: false                        # Set true when OTLP collector is available
+    otlp_endpoint: "http://otel-collector:4317"
+    service_name: multidocchat
+    sample_rate: 1.0                      # 1.0 = trace every request

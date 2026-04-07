@@ -1,0 +1,41 @@
+# Requires nginx-ingress-controller installed in cluster.
+# Install:  helm install ingress-nginx ingress-nginx/ingress-nginx
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: multidocchat-ingress
+  namespace: multidocchat
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # Rate limiting: 30 requests/min per IP
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+    nginx.ingress.kubernetes.io/limit-connections: "10"
+    # Upload size limit: 50 MB
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # TLS redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # GZIP
+    nginx.ingress.kubernetes.io/enable-gzip: "true"
+spec:
+  tls:
+    - hosts:
+        - multidocchat.yourdomain.com    # Replace with your domain
+      secretName: multidocchat-tls
+  rules:
+    - host: multidocchat.yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: multidocchat-app
+                port:
+                  number: 80
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: multidocchat-app
+                port:
+                  number: 80

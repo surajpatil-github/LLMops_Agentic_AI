@@ -1,4 +1,11 @@
-version: '3.8'
+# Spin up a local Jenkins instance with Docker-in-Docker access.
+#
+# Usage:
+#   docker-compose -f docker-compose.jenkins.yml up -d
+#   docker-compose -f docker-compose.jenkins.yml logs -f jenkins
+#
+# Get initial admin password:
+#   docker exec jenkins-local cat /var/jenkins_home/secrets/initialAdminPassword
 
 services:
   jenkins:
@@ -6,15 +13,17 @@ services:
       context: .
       dockerfile: Dockerfile.jenkins
     container_name: jenkins-local
-    privileged: true
     user: root
     ports:
-      - "8083:8080"
-      - "50000:50000"
+      - "8090:8080"     # Jenkins UI  → http://localhost:8090
+      - "50000:50000"   # Agent port
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock   # Docker-in-Docker
+      - .:/workspace:ro                              # project read-only mount
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    restart: unless-stopped
 
 volumes:
   jenkins_home:

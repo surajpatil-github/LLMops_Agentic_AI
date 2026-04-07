@@ -1,37 +1,69 @@
-# Use official Python image
-FROM python:3.12-slim
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1 — Builder: install all Python dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy
 
-# Set workdir
-WORKDIR /app
+WORKDIR /build
 
-# Install OS dependencies
-RUN apt-get update && apt-get install -y build-essential poppler-utils curl && rm -rf /var/lib/apt/lists/*
+# OS build deps
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential curl \
+ && rm -rf /var/lib/apt/lists/*
 
-# Install uv (Python package/dependency manager)
+# Install uv (fast package installer)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
-ENV UV_LINK_MODE=copy
-ENV PYTHONPATH="/app:/app/multi_doc_chat"
 
-# Copy dependency manifests for better layer caching
-COPY requirements.txt ./
+# Install Python deps into an isolated prefix — kept in /build/.venv
+COPY requirements.txt .
+# Install CPU-only torch first to prevent sentence-transformers from
+# pulling in 2GB+ of CUDA/GPU wheels (nvidia-nccl, nvidia-cublas, etc.)
+RUN uv venv /build/.venv \
+ && uv pip install --python /build/.venv/bin/python \
+      torch --index-url https://download.pytorch.org/whl/cpu \
+ && uv pip install --python /build/.venv/bin/python -r requirements.txt
 
-# Install dependencies into the system interpreter using uv pip
-RUN uv pip install --system -r requirements.txt
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — Runtime: slim final image, no build tools
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS runtime
 
-# Copy project files
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app" \
+    PATH="/app/.venv/bin:$PATH" \
+    PORT=8080 \
+    ENV=production
+
+WORKDIR /app
+
+# Runtime OS deps (PDF extraction, libgomp for sentence-transformers)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils libgomp1 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Copy the venv from builder — no build tools in final image
+COPY --from=builder /build/.venv /app/.venv
+
+# Copy application source
 COPY . .
 
+# Non-root user for security
+RUN addgroup --system appgroup \
+ && adduser --system --ingroup appgroup --no-create-home appuser \
+ && chown -R appuser:appgroup /app
 
-# Expose port
+USER appuser
+
 EXPOSE 8080
 
-# Run FastAPI with uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
 
-# Replace last CMD in prod
-#CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4"]
+# Production: 2 workers, no reload
+# Development: override with `--reload --workers 1`
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "2"]

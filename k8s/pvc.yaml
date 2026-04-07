@@ -1,0 +1,28 @@
+# PersistentVolumeClaims for FAISS indexes and uploaded files
+# (shared across pods via ReadWriteMany — requires a NFS/EFS/AzureFile storage class)
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: faiss-index-pvc
+  namespace: multidocchat
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard   # Replace with your cloud storage class
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: upload-data-pvc
+  namespace: multidocchat
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard

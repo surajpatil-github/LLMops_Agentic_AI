@@ -1,0 +1,8 @@
+git
+workflow-aggregator
+junit
+github-branch-source
+docker-workflow
+credentials-binding
+pipeline-utility-steps
+htmlpublisher
