@@ -22,10 +22,12 @@ jobs:
       - name: Install dependencies
         run: |
           uv venv .venv
+          # Strip Windows-only and local packages that can't install on Linux
+          grep -vE '^\s*(pywin32|llmops-series)(==.*)?\s*$' requirements.txt > /tmp/req-linux.txt
           uv pip install --python .venv/bin/python \
             torch --index-url https://download.pytorch.org/whl/cpu
           uv pip install --python .venv/bin/python \
-            -r requirements.txt pytest pytest-cov
+            -r /tmp/req-linux.txt pytest pytest-cov
 
       - name: Run tests
         env:
