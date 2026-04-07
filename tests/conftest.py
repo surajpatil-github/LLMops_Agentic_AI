@@ -28,10 +28,31 @@ def client():
 
 
 @pytest.fixture
-def clear_sessions():
-    main.SESSIONS.clear()
-    yield
-    main.SESSIONS.clear()
+def clear_sessions(monkeypatch):
+    # SESSIONS dict was replaced by a Redis-backed session store.
+    # Patch the session store with a simple in-memory dict for tests.
+    from multi_doc_chat.src.persistence import session_store as ss
+    fake_store: dict = {}
+
+    def fake_get(sid):
+        return fake_store.get(sid, [])
+
+    def fake_set(sid, history, _ttl=None):
+        fake_store[sid] = history
+
+    def fake_delete(sid):
+        fake_store.pop(sid, None)
+
+    monkeypatch.setattr(ss, "get_session", fake_get)
+    monkeypatch.setattr(ss, "set_session", fake_set)
+    monkeypatch.setattr(ss, "delete_session", fake_delete)
+
+    # Also expose a SESSIONS-like dict on main so tests can seed data
+    monkeypatch.setattr(main, "SESSIONS", fake_store, raising=False)
+
+    fake_store.clear()
+    yield fake_store
+    fake_store.clear()
 
 
 @pytest.fixture
