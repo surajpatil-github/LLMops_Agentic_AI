@@ -257,11 +257,14 @@ pipeline {
     }
     failure {
       echo "Pipeline failed — check console output above."
-      sh 'docker-compose logs --tail=80 app || true'
+      node {
+        sh 'docker-compose logs --tail=80 app || true'
+      }
     }
     always {
-      echo 'Cleaning up venv...'
-      sh 'rm -rf /tmp/venv-${BUILD_NUMBER} || true'
+      node {
+        sh 'rm -rf /tmp/venv-${BUILD_NUMBER} || true'
+      }
     }
   }
 }
