@@ -29,9 +29,12 @@ services:
       - ENV=local
       - PORT=8080
       - REDIS_URL=redis://redis:6379/0
-      - LLM_PROVIDER=groq
+      - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
     env_file:
-      - .env
+      - path: .env
+        required: false
     volumes:
       - faiss_data:/app/faiss_index
       - upload_data:/app/data
