@@ -248,6 +248,15 @@ pipeline {
       }
     }
 
+    // ─────────────────────────────────────────────
+    stage('Cleanup') {
+    // ─────────────────────────────────────────────
+      steps {
+        sh 'rm -rf /tmp/venv-${BUILD_NUMBER} || true'
+        echo 'Workspace cleaned up.'
+      }
+    }
+
   } // end stages
 
   post {
@@ -257,14 +266,9 @@ pipeline {
     }
     failure {
       echo "Pipeline failed — check console output above."
-      node {
-        sh 'docker-compose logs --tail=80 app || true'
-      }
     }
     always {
-      node {
-        sh 'rm -rf /tmp/venv-${BUILD_NUMBER} || true'
-      }
+      echo "Pipeline finished. Build #${BUILD_NUMBER} done."
     }
   }
 }
